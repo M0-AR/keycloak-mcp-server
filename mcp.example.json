@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "keycloak": {
+      "command": "npx",
+      "args": ["-y", "keycloak-model-context-protocol"],
+      "env": {
+        "KEYCLOAK_URL": "https://your-keycloak-instance.com",
+        "KEYCLOAK_ADMIN": "your-admin-username",
+        "KEYCLOAK_ADMIN_PASSWORD": "your-admin-password"
+      }
+    }
+  }
+} 
