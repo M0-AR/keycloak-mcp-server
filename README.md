@@ -51,9 +51,19 @@ A comprehensive Model Context Protocol (MCP) server for Keycloak administration,
 
 ## 📦 Installation
 
-### NPM Package (Recommended)
+### Global Installation (Recommended)
+```bash
+npm install -g keycloak-mcp-server
+```
+
+### Using NPX (No Installation Required)
 ```bash
 npx keycloak-mcp-server
+```
+
+### Local Project Installation
+```bash
+npm install keycloak-mcp-server
 ```
 
 ### Local Development
@@ -69,6 +79,7 @@ npm run build
 ### For Cursor AI
 Add to your Cursor MCP configuration file (`~/.cursor/mcp.json`):
 
+#### Option 1: Using NPX (Recommended)
 ```json
 {
   "mcpServers": {
@@ -77,6 +88,22 @@ Add to your Cursor MCP configuration file (`~/.cursor/mcp.json`):
       "args": ["keycloak-mcp-server"],
       "env": {
         "KEYCLOAK_URL": "https://your-keycloak-instance.com",
+        "KEYCLOAK_ADMIN": "your-admin-username",
+        "KEYCLOAK_ADMIN_PASSWORD": "your-admin-password"
+      }
+    }
+  }
+}
+```
+
+#### Option 2: If Installed Globally
+```json
+{
+  "mcpServers": {
+    "keycloak": {
+      "command": "keycloak-mcp-server",
+      "env": {
+        "KEYCLOAK_URL": "https://your-keycloak-instance.com", 
         "KEYCLOAK_ADMIN": "your-admin-username",
         "KEYCLOAK_ADMIN_PASSWORD": "your-admin-password"
       }
