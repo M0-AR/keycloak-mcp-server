@@ -1045,7 +1045,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             description: { type: 'string', description: 'Client description' },
             enabled: { type: 'boolean', description: 'Enabled status' },
             publicClient: { type: 'boolean', description: 'Public client' },
-            redirectUris: { type: 'array', description: 'Redirect URIs' },
+            redirectUris: {
+              type: 'array',
+              description: 'Redirect URIs',
+              items: { type: 'string' },
+            },
           },
           required: ['realm', 'clientId'],
         },
@@ -1062,7 +1066,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             description: { type: 'string', description: 'Client description' },
             enabled: { type: 'boolean', description: 'Enabled status' },
             publicClient: { type: 'boolean', description: 'Public client' },
-            redirectUris: { type: 'array', description: 'Redirect URIs' },
+            redirectUris: {
+              type: 'array',
+              description: 'Redirect URIs',
+              items: { type: 'string' },
+            },
           },
           required: ['realm', 'clientId'],
         },
@@ -1633,7 +1641,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             realm: { type: 'string', description: 'Realm name' },
             roleId: { type: 'string', description: 'Role ID' },
-            roles: { type: 'array', description: 'Array of roles to compose' },
+            roles: {
+              type: 'array',
+              description: 'Array of roles to compose',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', description: 'Role ID' },
+                  name: { type: 'string', description: 'Role name' },
+                },
+                required: ['id', 'name'],
+              },
+            },
           },
           required: ['realm', 'roleId', 'roles'],
         },
@@ -1661,7 +1680,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             realm: { type: 'string', description: 'Realm name' },
             roleId: { type: 'string', description: 'Role ID' },
-            roles: { type: 'array', description: 'Array of roles to remove' },
+            roles: {
+              type: 'array',
+              description: 'Array of roles to remove',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', description: 'Role ID' },
+                  name: { type: 'string', description: 'Role name' },
+                },
+                required: ['id', 'name'],
+              },
+            },
           },
           required: ['realm', 'roleId', 'roles'],
         },
