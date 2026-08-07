@@ -540,9 +540,10 @@ List composite roles for group "group-id-123" in "master" realm
 ### 👥 Group Management Tools
 
 #### `create-group`
-Creates user groups.
+Creates user groups. Pass `parentId` to create a subgroup.
 ```
 Create a group called "developers" in "master" realm
+Create a group called "backend" under parent group "group-id-123" in "master" realm
 ```
 
 #### `update-group`
