@@ -447,20 +447,28 @@ Lists all roles in a realm.
 List all roles in the "master" realm
 ```
 
+#### `list-client-roles`
+Lists all roles defined on a client.
+```
+List all roles on client "my-app" in "master" realm
+```
+
 #### `assign-role-to-user`
-Assigns a role to a user.
+Assigns a realm role to a user, or a client role when `clientId` is supplied.
 ```
 Assign role "manager" to user "user-id-123" in "master" realm
+Assign client role "editor" on client "my-app" to user "user-id-123" in "master" realm
 ```
 
 #### `remove-role-from-user`
-Removes a role from a user.
+Removes a realm role from a user, or a client role when `clientId` is supplied.
 ```
 Remove role "manager" from user "user-id-123" in "master" realm
+Remove client role "editor" on client "my-app" from user "user-id-123" in "master" realm
 ```
 
 #### `get-user-roles`
-Gets all roles assigned to a user.
+Gets all roles directly assigned to a user, as `{ realmMappings, clientMappings }`.
 ```
 Get all roles for user "user-id-123" in "master" realm
 ```
@@ -502,31 +510,33 @@ Delete role with ID "role-id-123" from "master" realm
 ```
 
 #### `find-users-with-role` ⭐ **NEW**
-Find users with a specific role.
+Find users with a realm role, or with a client role when `clientId` is supplied.
 ```
 Find all users with role "manager" in "master" realm, limit 20
+Find all users with client role "editor" on client "my-app" in "master" realm
 ```
 
 #### `assign-role-to-group` ⭐ **NEW**
-Assign a role to a group.
+Assign a realm role to a group, or a client role when `clientId` is supplied.
 ```
 Assign role "developer" to group "group-id-123" in "master" realm
+Assign client role "editor" on client "my-app" to group "group-id-123" in "master" realm
 ```
 
 #### `remove-role-from-group` ⭐ **NEW**
-Remove a role from a group.
+Remove a realm role from a group, or a client role when `clientId` is supplied.
 ```
 Remove role "developer" from group "group-id-123" in "master" realm
 ```
 
 #### `get-group-roles` ⭐ **NEW**
-Get roles assigned to a group.
+Get roles assigned to a group, as `{ realmMappings, clientMappings }`.
 ```
 Get all roles for group "group-id-123" in "master" realm
 ```
 
 #### `list-available-group-roles` ⭐ **NEW**
-List available roles for a group.
+List roles a group could still be granted — realm roles, or a client's roles when `clientId` is supplied.
 ```
 List available roles for group "group-id-123" in "master" realm
 ```
