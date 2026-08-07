@@ -2342,14 +2342,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // Group Management Tools
       case 'create-group': {
-        const { realm, name } = CreateGroupSchema.parse(args);
+        const { realm, name, parentId } = CreateGroupSchema.parse(args);
         const result = await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          return await client.groups.create({
-            name,
-          });
+          // parentId was accepted by the schema and advertised in inputSchema, but never
+          // read here -- a caller asking for a subgroup silently got a top-level one, and
+          // in Keycloak a top-level group grants nothing it would have inherited from its
+          // parent, so the resulting permissions differ from what was requested.
+          if (parentId) {
+            return await client.groups.createChildGroup({ id: parentId }, { name });
+          }
+          return await client.groups.create({ name });
         });
-        return { content: [{ type: 'text', text: `Group created successfully: ${JSON.stringify(result, null, 2)}` }] };
+        const where = parentId ? `under parent ${parentId}` : 'at top level';
+        return { content: [{ type: 'text', text: `Group created successfully ${where}: ${JSON.stringify(result, null, 2)}` }] };
       }
 
       case 'update-group': {
