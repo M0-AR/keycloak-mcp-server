@@ -266,25 +266,94 @@ const GetRealmSettingsSchema = z.object({
   realm: z.string(),
 });
 
-const CreateClientSchema = z.object({
-  realm: z.string(),
-  clientId: z.string(),
+// Fields of Keycloak's ClientRepresentation that these tools accept explicitly. Anything
+// not listed here still reaches Keycloak thanks to .passthrough() below -- the point being
+// that an unknown field should be rejected by Keycloak with a real error rather than
+// dropped by us while we report success.
+const ClientFields = {
   name: z.string().optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
   publicClient: z.boolean().optional(),
   redirectUris: z.array(z.string()).optional(),
-});
+  protocol: z.enum(['openid-connect', 'saml']).optional(),
+  attributes: z.record(z.string()).optional(),
+  protocolMappers: z.array(z.record(z.any())).optional(),
+  fullScopeAllowed: z.boolean().optional(),
+  alwaysDisplayInConsole: z.boolean().optional(),
+  baseUrl: z.string().optional(),
+  rootUrl: z.string().optional(),
+  adminUrl: z.string().optional(),
+  webOrigins: z.array(z.string()).optional(),
+  bearerOnly: z.boolean().optional(),
+  consentRequired: z.boolean().optional(),
+  serviceAccountsEnabled: z.boolean().optional(),
+  standardFlowEnabled: z.boolean().optional(),
+  implicitFlowEnabled: z.boolean().optional(),
+  directAccessGrantsEnabled: z.boolean().optional(),
+  frontchannelLogout: z.boolean().optional(),
+  clientAuthenticatorType: z.string().optional(),
+  defaultClientScopes: z.array(z.string()).optional(),
+  optionalClientScopes: z.array(z.string()).optional(),
+};
 
-const UpdateClientSchema = z.object({
-  realm: z.string(),
-  clientId: z.string(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  enabled: z.boolean().optional(),
-  publicClient: z.boolean().optional(),
-  redirectUris: z.array(z.string()).optional(),
-});
+const CreateClientSchema = z
+  .object({
+    realm: z.string(),
+    clientId: z.string(),
+    ...ClientFields,
+  })
+  .passthrough();
+
+const UpdateClientSchema = z
+  .object({
+    realm: z.string(),
+    clientId: z.string(),
+    ...ClientFields,
+  })
+  .passthrough();
+
+// Advertised to MCP clients alongside the Zod schema above. Keeping the two in step matters
+// more than it looks: a field absent here is a field the caller never learns exists, so
+// widening only the Zod schema would leave SAML clients just as unreachable in practice.
+const CLIENT_INPUT_PROPERTIES = {
+  realm: { type: 'string', description: 'Realm name' },
+  clientId: { type: 'string', description: 'Client ID' },
+  name: { type: 'string', description: 'Client name' },
+  description: { type: 'string', description: 'Client description' },
+  enabled: { type: 'boolean', description: 'Enabled status' },
+  publicClient: { type: 'boolean', description: 'Public client' },
+  redirectUris: { type: 'array', description: 'Redirect URIs' },
+  protocol: {
+    type: 'string',
+    enum: ['openid-connect', 'saml'],
+    description: "Client protocol. Required as 'saml' for SAML clients; defaults to openid-connect",
+  },
+  attributes: {
+    type: 'object',
+    description: 'Client attributes, e.g. saml_name_id_format, saml.signature.algorithm',
+  },
+  protocolMappers: { type: 'array', description: 'Protocol mapper representations' },
+  fullScopeAllowed: { type: 'boolean', description: 'Whether all roles are in scope' },
+  alwaysDisplayInConsole: {
+    type: 'boolean',
+    description: 'Show in the account console even without an active session',
+  },
+  baseUrl: { type: 'string', description: 'Home URL' },
+  rootUrl: { type: 'string', description: 'Root URL' },
+  adminUrl: { type: 'string', description: 'Admin URL' },
+  webOrigins: { type: 'array', description: 'Allowed CORS origins' },
+  bearerOnly: { type: 'boolean', description: 'Bearer-only client' },
+  consentRequired: { type: 'boolean', description: 'Require user consent' },
+  serviceAccountsEnabled: { type: 'boolean', description: 'Enable service account' },
+  standardFlowEnabled: { type: 'boolean', description: 'Enable standard flow' },
+  implicitFlowEnabled: { type: 'boolean', description: 'Enable implicit flow' },
+  directAccessGrantsEnabled: { type: 'boolean', description: 'Enable direct access grants' },
+  frontchannelLogout: { type: 'boolean', description: 'Front-channel logout' },
+  clientAuthenticatorType: { type: 'string', description: 'Client authenticator type' },
+  defaultClientScopes: { type: 'array', description: 'Default client scopes' },
+  optionalClientScopes: { type: 'array', description: 'Optional client scopes' },
+};
 
 const DeleteClientSchema = z.object({
   realm: z.string(),
@@ -1035,36 +1104,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       // Client Management Tools
       {
         name: 'create-client',
-        description: 'Register a new client/application in a realm',
+        description:
+          'Register a new client/application in a realm. Accepts any ClientRepresentation field, ' +
+          'including protocol, attributes and protocolMappers, so SAML clients can be created directly.',
         inputSchema: {
           type: 'object',
-          properties: {
-            realm: { type: 'string', description: 'Realm name' },
-            clientId: { type: 'string', description: 'Client ID' },
-            name: { type: 'string', description: 'Client name' },
-            description: { type: 'string', description: 'Client description' },
-            enabled: { type: 'boolean', description: 'Enabled status' },
-            publicClient: { type: 'boolean', description: 'Public client' },
-            redirectUris: { type: 'array', description: 'Redirect URIs' },
-          },
+          properties: CLIENT_INPUT_PROPERTIES,
           required: ['realm', 'clientId'],
+          additionalProperties: true,
         },
       },
       {
         name: 'update-client',
-        description: 'Update client settings (redirect URIs, protocol mappers, etc.)',
+        description:
+          'Update client settings (redirect URIs, protocol mappers, attributes, etc.). ' +
+          'Only the fields supplied are changed.',
         inputSchema: {
           type: 'object',
-          properties: {
-            realm: { type: 'string', description: 'Realm name' },
-            clientId: { type: 'string', description: 'Client ID' },
-            name: { type: 'string', description: 'Client name' },
-            description: { type: 'string', description: 'Client description' },
-            enabled: { type: 'boolean', description: 'Enabled status' },
-            publicClient: { type: 'boolean', description: 'Public client' },
-            redirectUris: { type: 'array', description: 'Redirect URIs' },
-          },
+          properties: CLIENT_INPUT_PROPERTIES,
           required: ['realm', 'clientId'],
+          additionalProperties: true,
         },
       },
       {
