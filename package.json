@@ -18,7 +18,7 @@
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js",
     "prepublishOnly": "npm run build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run build && node --test test/*.test.js"
   },
   "keywords": [
     "mcp",
@@ -68,4 +68,4 @@
   "publishConfig": {
     "access": "public"
   }
-} 
+}

@@ -228,12 +228,19 @@ const AssignRoleToUserSchema = z.object({
   realm: z.string(),
   userId: z.string(),
   roleName: z.string(),
+  clientId: z.string().optional(),
 });
 
 const RemoveRoleFromUserSchema = z.object({
   realm: z.string(),
   userId: z.string(),
   roleName: z.string(),
+  clientId: z.string().optional(),
+});
+
+const ListClientRolesSchema = z.object({
+  realm: z.string(),
+  clientId: z.string(),
 });
 
 const GetUserRolesSchema = z.object({
@@ -266,25 +273,94 @@ const GetRealmSettingsSchema = z.object({
   realm: z.string(),
 });
 
-const CreateClientSchema = z.object({
-  realm: z.string(),
-  clientId: z.string(),
+// Fields of Keycloak's ClientRepresentation that these tools accept explicitly. Anything
+// not listed here still reaches Keycloak thanks to .passthrough() below -- the point being
+// that an unknown field should be rejected by Keycloak with a real error rather than
+// dropped by us while we report success.
+const ClientFields = {
   name: z.string().optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
   publicClient: z.boolean().optional(),
   redirectUris: z.array(z.string()).optional(),
-});
+  protocol: z.enum(['openid-connect', 'saml']).optional(),
+  attributes: z.record(z.string()).optional(),
+  protocolMappers: z.array(z.record(z.any())).optional(),
+  fullScopeAllowed: z.boolean().optional(),
+  alwaysDisplayInConsole: z.boolean().optional(),
+  baseUrl: z.string().optional(),
+  rootUrl: z.string().optional(),
+  adminUrl: z.string().optional(),
+  webOrigins: z.array(z.string()).optional(),
+  bearerOnly: z.boolean().optional(),
+  consentRequired: z.boolean().optional(),
+  serviceAccountsEnabled: z.boolean().optional(),
+  standardFlowEnabled: z.boolean().optional(),
+  implicitFlowEnabled: z.boolean().optional(),
+  directAccessGrantsEnabled: z.boolean().optional(),
+  frontchannelLogout: z.boolean().optional(),
+  clientAuthenticatorType: z.string().optional(),
+  defaultClientScopes: z.array(z.string()).optional(),
+  optionalClientScopes: z.array(z.string()).optional(),
+};
 
-const UpdateClientSchema = z.object({
-  realm: z.string(),
-  clientId: z.string(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  enabled: z.boolean().optional(),
-  publicClient: z.boolean().optional(),
-  redirectUris: z.array(z.string()).optional(),
-});
+const CreateClientSchema = z
+  .object({
+    realm: z.string(),
+    clientId: z.string(),
+    ...ClientFields,
+  })
+  .passthrough();
+
+const UpdateClientSchema = z
+  .object({
+    realm: z.string(),
+    clientId: z.string(),
+    ...ClientFields,
+  })
+  .passthrough();
+
+// Advertised to MCP clients alongside the Zod schema above. Keeping the two in step matters
+// more than it looks: a field absent here is a field the caller never learns exists, so
+// widening only the Zod schema would leave SAML clients just as unreachable in practice.
+const CLIENT_INPUT_PROPERTIES = {
+  realm: { type: 'string', description: 'Realm name' },
+  clientId: { type: 'string', description: 'Client ID' },
+  name: { type: 'string', description: 'Client name' },
+  description: { type: 'string', description: 'Client description' },
+  enabled: { type: 'boolean', description: 'Enabled status' },
+  publicClient: { type: 'boolean', description: 'Public client' },
+  redirectUris: { type: 'array', description: 'Redirect URIs' },
+  protocol: {
+    type: 'string',
+    enum: ['openid-connect', 'saml'],
+    description: "Client protocol. Required as 'saml' for SAML clients; defaults to openid-connect",
+  },
+  attributes: {
+    type: 'object',
+    description: 'Client attributes, e.g. saml_name_id_format, saml.signature.algorithm',
+  },
+  protocolMappers: { type: 'array', description: 'Protocol mapper representations' },
+  fullScopeAllowed: { type: 'boolean', description: 'Whether all roles are in scope' },
+  alwaysDisplayInConsole: {
+    type: 'boolean',
+    description: 'Show in the account console even without an active session',
+  },
+  baseUrl: { type: 'string', description: 'Home URL' },
+  rootUrl: { type: 'string', description: 'Root URL' },
+  adminUrl: { type: 'string', description: 'Admin URL' },
+  webOrigins: { type: 'array', description: 'Allowed CORS origins' },
+  bearerOnly: { type: 'boolean', description: 'Bearer-only client' },
+  consentRequired: { type: 'boolean', description: 'Require user consent' },
+  serviceAccountsEnabled: { type: 'boolean', description: 'Enable service account' },
+  standardFlowEnabled: { type: 'boolean', description: 'Enable standard flow' },
+  implicitFlowEnabled: { type: 'boolean', description: 'Enable implicit flow' },
+  directAccessGrantsEnabled: { type: 'boolean', description: 'Enable direct access grants' },
+  frontchannelLogout: { type: 'boolean', description: 'Front-channel logout' },
+  clientAuthenticatorType: { type: 'string', description: 'Client authenticator type' },
+  defaultClientScopes: { type: 'array', description: 'Default client scopes' },
+  optionalClientScopes: { type: 'array', description: 'Optional client scopes' },
+};
 
 const DeleteClientSchema = z.object({
   realm: z.string(),
@@ -575,6 +651,7 @@ const DeleteRoleByIdSchema = z.object({
 const FindUsersWithRoleSchema = z.object({
   realm: z.string(),
   roleName: z.string(),
+  clientId: z.string().optional(),
   first: z.number().optional(),
   max: z.number().optional(),
 });
@@ -583,12 +660,14 @@ const AssignRoleToGroupSchema = z.object({
   realm: z.string(),
   groupId: z.string(),
   roleName: z.string(),
+  clientId: z.string().optional(),
 });
 
 const RemoveRoleFromGroupSchema = z.object({
   realm: z.string(),
   groupId: z.string(),
   roleName: z.string(),
+  clientId: z.string().optional(),
 });
 
 const GetGroupRolesSchema = z.object({
@@ -599,6 +678,7 @@ const GetGroupRolesSchema = z.object({
 const ListAvailableGroupRolesSchema = z.object({
   realm: z.string(),
   groupId: z.string(),
+  clientId: z.string().optional(),
 });
 
 const ListCompositeGroupRolesSchema = z.object({
@@ -842,6 +922,38 @@ const GetClientPolicySchema = z.object({
   policyName: z.string(),
 });
 
+/**
+ * Resolve a role by name in either the realm or a client, mirroring the branch that
+ * create-role/update-role/delete-role already use.
+ *
+ * Returning clientUniqueId (rather than a boolean) is deliberate: every caller needs that
+ * id for the *ClientRoleMappings call anyway, and threading it through here keeps callers
+ * from looking the client up a second time.
+ */
+async function resolveRole(
+  client: any,
+  roleName: string,
+  clientId?: string
+): Promise<{ role: { id: string; name: string }; clientUniqueId?: string }> {
+  if (!clientId) {
+    const role = await client.roles.findOneByName({ name: roleName });
+    if (!role || !role.id || !role.name) {
+      throw new Error(`Realm role ${roleName} not found or invalid`);
+    }
+    return { role: { id: role.id, name: role.name } };
+  }
+
+  const clients = await client.clients.find({ clientId });
+  if (clients.length === 0 || !clients[0].id) {
+    throw new Error(`Client ${clientId} not found or invalid`);
+  }
+  const role = await client.clients.findRole({ id: clients[0].id, roleName });
+  if (!role || !role.id || !role.name) {
+    throw new Error(`Client role ${roleName} not found on client ${clientId}`);
+  }
+  return { role: { id: role.id, name: role.name }, clientUniqueId: clients[0].id };
+}
+
 // Create and configure the server
 const server = new Server(
   {
@@ -1035,36 +1147,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       // Client Management Tools
       {
         name: 'create-client',
-        description: 'Register a new client/application in a realm',
+        description:
+          'Register a new client/application in a realm. Accepts any ClientRepresentation field, ' +
+          'including protocol, attributes and protocolMappers, so SAML clients can be created directly.',
         inputSchema: {
           type: 'object',
-          properties: {
-            realm: { type: 'string', description: 'Realm name' },
-            clientId: { type: 'string', description: 'Client ID' },
-            name: { type: 'string', description: 'Client name' },
-            description: { type: 'string', description: 'Client description' },
-            enabled: { type: 'boolean', description: 'Enabled status' },
-            publicClient: { type: 'boolean', description: 'Public client' },
-            redirectUris: { type: 'array', description: 'Redirect URIs' },
-          },
+          properties: CLIENT_INPUT_PROPERTIES,
           required: ['realm', 'clientId'],
+          additionalProperties: true,
         },
       },
       {
         name: 'update-client',
-        description: 'Update client settings (redirect URIs, protocol mappers, etc.)',
+        description:
+          'Update client settings (redirect URIs, protocol mappers, attributes, etc.). ' +
+          'Only the fields supplied are changed.',
         inputSchema: {
           type: 'object',
-          properties: {
-            realm: { type: 'string', description: 'Realm name' },
-            clientId: { type: 'string', description: 'Client ID' },
-            name: { type: 'string', description: 'Client name' },
-            description: { type: 'string', description: 'Client description' },
-            enabled: { type: 'boolean', description: 'Enabled status' },
-            publicClient: { type: 'boolean', description: 'Public client' },
-            redirectUris: { type: 'array', description: 'Redirect URIs' },
-          },
+          properties: CLIENT_INPUT_PROPERTIES,
           required: ['realm', 'clientId'],
+          additionalProperties: true,
         },
       },
       {
@@ -1147,33 +1249,42 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'assign-role-to-user',
-        description: 'Assign a role to a user in a specific realm',
+        description: 'Assign a realm role, or a client role when clientId is given, to a user',
         inputSchema: {
           type: 'object',
           properties: {
             realm: { type: 'string', description: 'Realm name' },
             userId: { type: 'string', description: 'User ID' },
             roleName: { type: 'string', description: 'Role name' },
+            clientId: {
+              type: 'string',
+              description: 'Client ID to resolve roleName as a client role. Omit for a realm role',
+            },
           },
           required: ['realm', 'userId', 'roleName'],
         },
       },
       {
         name: 'remove-role-from-user',
-        description: 'Remove a role from a user in a specific realm',
+        description: 'Remove a realm role, or a client role when clientId is given, from a user',
         inputSchema: {
           type: 'object',
           properties: {
             realm: { type: 'string', description: 'Realm name' },
             userId: { type: 'string', description: 'User ID' },
             roleName: { type: 'string', description: 'Role name' },
+            clientId: {
+              type: 'string',
+              description: 'Client ID to resolve roleName as a client role. Omit for a realm role',
+            },
           },
           required: ['realm', 'userId', 'roleName'],
         },
       },
       {
         name: 'get-user-roles',
-        description: 'Get all roles assigned to a user in a specific realm',
+        description:
+          'Get all roles directly assigned to a user, returned as { realmMappings, clientMappings }',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1181,6 +1292,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             userId: { type: 'string', description: 'User ID' },
           },
           required: ['realm', 'userId'],
+        },
+      },
+      {
+        name: 'list-client-roles',
+        description: 'List all roles defined on a client',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            realm: { type: 'string', description: 'Realm name' },
+            clientId: { type: 'string', description: 'Client ID' },
+          },
+          required: ['realm', 'clientId'],
         },
       },
 
@@ -1710,12 +1833,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'find-users-with-role',
-        description: 'Find users with a specific role',
+        description: 'Find users with a realm role, or with a client role when clientId is given',
         inputSchema: {
           type: 'object',
           properties: {
             realm: { type: 'string', description: 'Realm name' },
             roleName: { type: 'string', description: 'Role name' },
+            clientId: {
+              type: 'string',
+              description: 'Client ID to resolve roleName as a client role. Omit for a realm role',
+            },
             first: { type: 'number', description: 'First result index' },
             max: { type: 'number', description: 'Maximum results' },
           },
@@ -1724,33 +1851,42 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'assign-role-to-group',
-        description: 'Assign a role to a group',
+        description: 'Assign a realm role, or a client role when clientId is given, to a group',
         inputSchema: {
           type: 'object',
           properties: {
             realm: { type: 'string', description: 'Realm name' },
             groupId: { type: 'string', description: 'Group ID' },
             roleName: { type: 'string', description: 'Role name' },
+            clientId: {
+              type: 'string',
+              description: 'Client ID to resolve roleName as a client role. Omit for a realm role',
+            },
           },
           required: ['realm', 'groupId', 'roleName'],
         },
       },
       {
         name: 'remove-role-from-group',
-        description: 'Remove a role from a group',
+        description: 'Remove a realm role, or a client role when clientId is given, from a group',
         inputSchema: {
           type: 'object',
           properties: {
             realm: { type: 'string', description: 'Realm name' },
             groupId: { type: 'string', description: 'Group ID' },
             roleName: { type: 'string', description: 'Role name' },
+            clientId: {
+              type: 'string',
+              description: 'Client ID to resolve roleName as a client role. Omit for a realm role',
+            },
           },
           required: ['realm', 'groupId', 'roleName'],
         },
       },
       {
         name: 'get-group-roles',
-        description: 'Get roles assigned to a group',
+        description:
+          'Get roles assigned to a group, returned as { realmMappings, clientMappings }',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1762,12 +1898,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'list-available-group-roles',
-        description: 'List available roles for a group',
+        description:
+          'List roles a group could still be granted -- realm roles, or a client\'s roles when clientId is given',
         inputSchema: {
           type: 'object',
           properties: {
             realm: { type: 'string', description: 'Realm name' },
             groupId: { type: 'string', description: 'Group ID' },
+            clientId: {
+              type: 'string',
+              description: 'Client ID to list that client\'s available roles instead of realm roles',
+            },
           },
           required: ['realm', 'groupId'],
         },
@@ -2300,56 +2441,84 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'assign-role-to-user': {
-        const { realm, userId, roleName } = AssignRoleToUserSchema.parse(args);
+        const { realm, userId, roleName, clientId } = AssignRoleToUserSchema.parse(args);
         await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          const role = await client.roles.findOneByName({ name: roleName });
-          if (!role || !role.id || !role.name) {
-            throw new Error(`Role ${roleName} not found or invalid`);
+          const { role, clientUniqueId } = await resolveRole(client, roleName, clientId);
+          if (clientUniqueId) {
+            await client.users.addClientRoleMappings({
+              id: userId,
+              clientUniqueId,
+              roles: [role],
+            });
+          } else {
+            await client.users.addRealmRoleMappings({ id: userId, roles: [role] });
           }
-          await client.users.addRealmRoleMappings({
-            id: userId,
-            roles: [{ id: role.id, name: role.name }],
-          });
         });
-        return { content: [{ type: 'text', text: `Role ${roleName} assigned to user ${userId} in realm ${realm}` }] };
+        const scope = clientId ? `client ${clientId}` : 'realm';
+        return { content: [{ type: 'text', text: `Role ${roleName} (${scope}) assigned to user ${userId} in realm ${realm}` }] };
       }
 
       case 'remove-role-from-user': {
-        const { realm, userId, roleName } = RemoveRoleFromUserSchema.parse(args);
+        const { realm, userId, roleName, clientId } = RemoveRoleFromUserSchema.parse(args);
         await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          const role = await client.roles.findOneByName({ name: roleName });
-          if (!role || !role.id || !role.name) {
-            throw new Error(`Role ${roleName} not found or invalid`);
+          const { role, clientUniqueId } = await resolveRole(client, roleName, clientId);
+          if (clientUniqueId) {
+            await client.users.delClientRoleMappings({
+              id: userId,
+              clientUniqueId,
+              roles: [role],
+            });
+          } else {
+            await client.users.delRealmRoleMappings({ id: userId, roles: [role] });
           }
-          await client.users.delRealmRoleMappings({
-            id: userId,
-            roles: [{ id: role.id, name: role.name }],
-          });
         });
-        return { content: [{ type: 'text', text: `Role ${roleName} removed from user ${userId} in realm ${realm}` }] };
+        const scope = clientId ? `client ${clientId}` : 'realm';
+        return { content: [{ type: 'text', text: `Role ${roleName} (${scope}) removed from user ${userId} in realm ${realm}` }] };
       }
 
       case 'get-user-roles': {
         const { realm, userId } = GetUserRolesSchema.parse(args);
         const result = await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          return await client.users.listRealmRoleMappings({ id: userId });
+          // listRoleMappings returns { realmMappings, clientMappings } -- the complete picture.
+          // The previous listRealmRoleMappings call omitted every client role without saying so,
+          // which reads as "this user has no roles" for any client-role-based permission model.
+          return await client.users.listRoleMappings({ id: userId });
+        });
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      }
+
+      case 'list-client-roles': {
+        const { realm, clientId } = ListClientRolesSchema.parse(args);
+        const result = await adminManager.executeOperation(async (client) => {
+          client.setConfig({ realmName: realm });
+          const clients = await client.clients.find({ clientId });
+          if (clients.length === 0 || !clients[0].id) {
+            throw new Error(`Client ${clientId} not found or invalid`);
+          }
+          return await client.clients.listRoles({ id: clients[0].id });
         });
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       }
 
       // Group Management Tools
       case 'create-group': {
-        const { realm, name } = CreateGroupSchema.parse(args);
+        const { realm, name, parentId } = CreateGroupSchema.parse(args);
         const result = await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          return await client.groups.create({
-            name,
-          });
+          // parentId was accepted by the schema and advertised in inputSchema, but never
+          // read here -- a caller asking for a subgroup silently got a top-level one, and
+          // in Keycloak a top-level group grants nothing it would have inherited from its
+          // parent, so the resulting permissions differ from what was requested.
+          if (parentId) {
+            return await client.groups.createChildGroup({ id: parentId }, { name });
+          }
+          return await client.groups.create({ name });
         });
-        return { content: [{ type: 'text', text: `Group created successfully: ${JSON.stringify(result, null, 2)}` }] };
+        const where = parentId ? `under parent ${parentId}` : 'at top level';
+        return { content: [{ type: 'text', text: `Group created successfully ${where}: ${JSON.stringify(result, null, 2)}` }] };
       }
 
       case 'update-group': {
@@ -2781,56 +2950,90 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'find-users-with-role': {
-        const { realm, roleName, first, max } = FindUsersWithRoleSchema.parse(args);
+        const { realm, roleName, clientId, first, max } = FindUsersWithRoleSchema.parse(args);
         const result = await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          const params: any = { name: roleName };
-          if (first) params.first = first;
-          if (max) params.max = max;
-          return await client.roles.findUsersWithRole(params);
+          const params: any = { first, max };
+          if (clientId) {
+            const clients = await client.clients.find({ clientId });
+            if (clients.length === 0 || !clients[0].id) {
+              throw new Error(`Client ${clientId} not found or invalid`);
+            }
+            return await client.clients.findUsersWithRole({
+              ...params,
+              id: clients[0].id,
+              roleName,
+            });
+          }
+          return await client.roles.findUsersWithRole({ ...params, name: roleName });
         });
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       }
 
       case 'assign-role-to-group': {
-        const { realm, groupId, roleName } = AssignRoleToGroupSchema.parse(args);
+        const { realm, groupId, roleName, clientId } = AssignRoleToGroupSchema.parse(args);
         await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          const role = await client.roles.findOneByName({ name: roleName });
-          if (!role || !role.id || !role.name) {
-            throw new Error(`Role ${roleName} not found or invalid`);
+          const { role, clientUniqueId } = await resolveRole(client, roleName, clientId);
+          if (clientUniqueId) {
+            await client.groups.addClientRoleMappings({
+              id: groupId,
+              clientUniqueId,
+              roles: [role],
+            });
+          } else {
+            await client.groups.addRealmRoleMappings({ id: groupId, roles: [role] });
           }
-          await client.groups.addRealmRoleMappings({ id: groupId, roles: [{ id: role.id, name: role.name }] });
         });
-        return { content: [{ type: 'text', text: `Role ${roleName} assigned to group ${groupId} successfully` }] };
+        const scope = clientId ? `client ${clientId}` : 'realm';
+        return { content: [{ type: 'text', text: `Role ${roleName} (${scope}) assigned to group ${groupId} successfully` }] };
       }
 
       case 'remove-role-from-group': {
-        const { realm, groupId, roleName } = RemoveRoleFromGroupSchema.parse(args);
+        const { realm, groupId, roleName, clientId } = RemoveRoleFromGroupSchema.parse(args);
         await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          const role = await client.roles.findOneByName({ name: roleName });
-          if (!role || !role.id || !role.name) {
-            throw new Error(`Role ${roleName} not found or invalid`);
+          const { role, clientUniqueId } = await resolveRole(client, roleName, clientId);
+          if (clientUniqueId) {
+            await client.groups.delClientRoleMappings({
+              id: groupId,
+              clientUniqueId,
+              roles: [role],
+            });
+          } else {
+            await client.groups.delRealmRoleMappings({ id: groupId, roles: [role] });
           }
-          await client.groups.delRealmRoleMappings({ id: groupId, roles: [{ id: role.id, name: role.name }] });
         });
-        return { content: [{ type: 'text', text: `Role ${roleName} removed from group ${groupId} successfully` }] };
+        const scope = clientId ? `client ${clientId}` : 'realm';
+        return { content: [{ type: 'text', text: `Role ${roleName} (${scope}) removed from group ${groupId} successfully` }] };
       }
 
       case 'get-group-roles': {
         const { realm, groupId } = GetGroupRolesSchema.parse(args);
         const result = await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
-          return await client.groups.listRealmRoleMappings({ id: groupId });
+          // Complete mappings, same reasoning as get-user-roles. This previously returned []
+          // for a group holding client roles, while get-group-attributes on the same group
+          // reported them via groups.findOne -- two tools contradicting each other.
+          return await client.groups.listRoleMappings({ id: groupId });
         });
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       }
 
       case 'list-available-group-roles': {
-        const { realm, groupId } = ListAvailableGroupRolesSchema.parse(args);
+        const { realm, groupId, clientId } = ListAvailableGroupRolesSchema.parse(args);
         const result = await adminManager.executeOperation(async (client) => {
           client.setConfig({ realmName: realm });
+          if (clientId) {
+            const clients = await client.clients.find({ clientId });
+            if (clients.length === 0 || !clients[0].id) {
+              throw new Error(`Client ${clientId} not found or invalid`);
+            }
+            return await client.groups.listAvailableClientRoleMappings({
+              id: groupId,
+              clientUniqueId: clients[0].id,
+            });
+          }
           return await client.groups.listAvailableRealmRoleMappings({ id: groupId });
         });
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
